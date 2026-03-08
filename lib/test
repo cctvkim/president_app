@@ -1,0 +1,14 @@
+https://www.googleapis.com/youtube/v3/search
+?part=snippet
+&channelId=UCNJM6dqu70Qr6VaseiW1Org
+&order=date
+&maxResults=1
+&type=video
+&key=AIzaSyCbnLIvhOOrdn9EcTcsvbi_ch-0NFOIF0g
+
+
+https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=@maebulshow&key=AIzaSyCbnLIvhOOrdn9EcTcsvbi_ch-0NFOIF0g
+
+
+매불쇼 채널 아이디 : UCMYhq9OyGI5UEz_NTAoHY7A
+김어준의 뉴스공장 : UCAAvO0ehWox1bbym3rXKBZw
