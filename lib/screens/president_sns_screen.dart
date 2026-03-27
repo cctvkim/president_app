@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-
+import '../services/youtube_server_service.dart';
 import '../services/youtube_service.dart';
 
 class PresidentSnsScreen extends StatelessWidget {
-  final String youtubeApiKey;
+  final String youtubeServerBaseUrl;
 
   const PresidentSnsScreen({
     super.key,
-    required this.youtubeApiKey,
+    required this.youtubeServerBaseUrl,
   });
 
   Future<void> _open(String url) async {
@@ -62,7 +62,7 @@ class PresidentSnsScreen extends StatelessWidget {
         color: const Color(0xFF6A1B9A),
         url: 'https://www.youtube.com/@KimJason-l3b',
         routeBuilder: () => JjalJjalJjalFeedScreen(
-          apiKey: youtubeApiKey,
+          baseUrl: youtubeServerBaseUrl,
           channelId: 'UCB5BTzhRyNjBcGdqsAyXJTw',
           channelUrl: 'https://www.youtube.com/@KimJason-l3b',
           title: '짤짤짤',
@@ -104,14 +104,14 @@ class PresidentSnsScreen extends StatelessWidget {
 }
 
 class JjalJjalJjalFeedScreen extends StatefulWidget {
-  final String apiKey;
+  final String baseUrl;
   final String channelId;
   final String channelUrl;
   final String title;
 
   const JjalJjalJjalFeedScreen({
     super.key,
-    required this.apiKey,
+    required this.baseUrl,
     required this.channelId,
     required this.channelUrl,
     required this.title,
@@ -122,9 +122,11 @@ class JjalJjalJjalFeedScreen extends StatefulWidget {
 }
 
 class _JjalJjalJjalFeedScreenState extends State<JjalJjalJjalFeedScreen> {
+  static const String _targetTag = '#leejaemyung';
+
   bool _loading = true;
   String? _error;
-  final List<YoutubeVideoLite> _videos = [];
+  final List<YoutubeServerVideoLite> _videos = [];
 
   @override
   void initState() {
@@ -140,9 +142,9 @@ class _JjalJjalJjalFeedScreenState extends State<JjalJjalJjalFeedScreen> {
 
   String _norm(String s) => s.replaceAll(' ', '').toLowerCase();
 
-  bool _looksLikeShort(YoutubeVideoLite v) {
-    final t = _norm(v.title);
-    return t.contains('#shorts') || t.contains('shorts') || t.contains('쇼츠');
+  bool _hasLeeTag(YoutubeServerVideoLite v) {
+    final desc = _norm(v.description);
+    return desc.contains(_targetTag);
   }
 
   Future<void> _load() async {
@@ -153,17 +155,21 @@ class _JjalJjalJjalFeedScreenState extends State<JjalJjalJjalFeedScreen> {
     });
 
     try {
-      final svc = YoutubeService(
-        apiKey: widget.apiKey,
-        channelId: widget.channelId,
+      final svc = YoutubeServerService(
+        baseUrl: widget.baseUrl,
       );
 
-      final list = await svc.fetchLatestVideos(max: 20);
-      final shortsOnly = list.where(_looksLikeShort).toList();
+      final fetched = await svc.fetchLatestVideos(
+        channelId: widget.channelId,
+        max: 20,
+      );
+
+      final filtered = fetched.where(_hasLeeTag).toList();
 
       if (!mounted) return;
+
       setState(() {
-        _videos.addAll(shortsOnly.isNotEmpty ? shortsOnly : list);
+        _videos.addAll(filtered);
         _loading = false;
       });
     } catch (e) {
@@ -174,7 +180,6 @@ class _JjalJjalJjalFeedScreenState extends State<JjalJjalJjalFeedScreen> {
       });
     }
   }
-
   String _date(DateTime dt) {
     if (dt.millisecondsSinceEpoch == 0) return '';
     return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
@@ -232,7 +237,7 @@ class _JjalJjalJjalFeedScreenState extends State<JjalJjalJjalFeedScreen> {
                             padding: const EdgeInsets.all(16),
                             children: const [
                               SizedBox(height: 100),
-                              Center(child: Text('표시할 동영상이 없습니다.')),
+                              Center(child: Text('조건에 맞는 동영상이 없습니다.')),
                             ],
                           )
                         : ListView.builder(

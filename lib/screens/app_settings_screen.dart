@@ -306,78 +306,111 @@ Future<void> _buyAdFree() async {
           // ✅ 정기결제(광고 제거) 섹션 추가
           // =========================
           ValueListenableBuilder<bool>(
-            valueListenable: AdFreeStore.isAdFree,
-            builder: (context, isAdFree, _) {
-              return Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('광고 제거(정기결제)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-                      const SizedBox(height: 8),
-                      Row(
+            valueListenable: AdFreeStore.isChecking,
+            builder: (context, checking, _) {
+              return ValueListenableBuilder<bool>(
+                valueListenable: AdFreeStore.isAdFree,
+                builder: (context, isAdFree, __) {
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(isAdFree ? Icons.verified : Icons.info_outline),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              isAdFree ? '광고 제거 사용 중' : '현재 광고 표시 중',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
+                          const Text(
+                            '광고 제거(정기결제)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      if (_subError != null)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(_subError!, style: const TextStyle(color: Colors.red)),
-                        ),
-                      if (_subLoading)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else
-                        Column(
-                          children: [
+                          const SizedBox(height: 8),
+                          if (checking) ...[
                             Row(
                               children: [
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: isAdFree ? null : _buyAdFree,
-                                    child: const Text('정기결제 시작(광고 제거)'),
-                                  ),
+                                const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
                                 ),
-                                const SizedBox(width: 10),
-                                OutlinedButton(
-                                  onPressed: _restorePurchases,
-                                  child: const Text('구매 복원'),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '구독 상태 확인 중...',
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 10),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton(
-                                onPressed: _openManageSubscription,
-                                child: const Text('구독 관리/해지하기'),
+                          ] else ...[
+                            Row(
+                              children: [
+                                Icon(isAdFree ? Icons.verified : Icons.info_outline),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    isAdFree ? '광고 제거 사용 중' : '현재 광고 표시 중',
+                                    style: Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          if (_subError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                _subError!,
+                                style: const TextStyle(color: Colors.red),
                               ),
                             ),
-                          ],
-                        ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '정기결제 승인 대기 중이어도 메뉴는 미리 넣어도 됩니다. '
-                        '실제 결제는 Play Console에서 상품이 “활성”이 된 뒤 정상 동작합니다.',
-                        style: Theme.of(context).textTheme.bodySmall,
+                          if (_subLoading)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          else
+                            Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: (checking || isAdFree) ? null : _buyAdFree,
+                                        child: const Text('정기결제 시작(광고 제거)'),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    OutlinedButton(
+                                      onPressed: checking ? null : _restorePurchases,
+                                      child: const Text('구매 복원'),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton(
+                                    onPressed: _openManageSubscription,
+                                    child: const Text('구독 관리/해지하기'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          const SizedBox(height: 6),
+                          Text(
+                            '정기결제 승인 대기 중이어도 메뉴는 미리 넣어도 됩니다. '
+                            '실제 결제는 Play Console에서 상품이 “활성”이 된 뒤 정상 동작합니다.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               );
             },
           ),

@@ -6,16 +6,17 @@ import '../models/content_item.dart';
 import '../services/ktv_api.dart';
 import '../services/korea_kr_rss.dart';
 import '../widgets/home_youtube_card.dart';
-import '../services/youtube_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final KtvApi api;
-  final YoutubeService yt;
+  final String youtubeServerBaseUrl;
+  final String youtubeChannelId;
 
   const HomeScreen({
     super.key,
     required this.api,
-    required this.yt,
+    required this.youtubeServerBaseUrl,
+    required this.youtubeChannelId,
   });
 
   @override
@@ -30,7 +31,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<ContentItem> _cards = [];
   List<ContentItem> _rss = [];
 
-  // ✅ president.xml 기본
   final KoreaKrRssService _rssSvc = KoreaKrRssService.defaultPresident();
 
   @override
@@ -53,8 +53,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _rss = await _rssSvc.fetch(limit: 2);
 
+      if (!mounted) return;
       setState(() => _loading = false);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -83,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const _TodayPresidentBlock(),
                       const SizedBox(height: 14),
 
-                      // 1행: 왼쪽 KTV 영상 / 오른쪽 카드뉴스
+                      // 1행: KTV / 카드뉴스
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -111,7 +113,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       const SizedBox(height: 14),
 
-                      // 2행: 왼쪽 RSS / 오른쪽 YouTube
+                      // 2행: RSS / YouTube
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -128,7 +130,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           Expanded(
                             child: SizedBox(
                               height: 270,
-                              child: HomeYoutubeCard(yt: widget.yt),
+                              child: HomeYoutubeCard(
+                                baseUrl: widget.youtubeServerBaseUrl,
+                                channelId: widget.youtubeChannelId,
+                              ),
                             ),
                           ),
                         ],
@@ -136,10 +141,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       const SizedBox(height: 24),
 
-                      // ✅ 정책 대응(면책 + 출처 링크)
                       Card(
                         elevation: 0,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -147,7 +153,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               const Text(
                                 '안내',
-                                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16,
+                                ),
                               ),
                               const SizedBox(height: 8),
                               const Text(
@@ -156,29 +165,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 style: TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                               const SizedBox(height: 12),
-                              const Text(
-                                '공식 출처',
-                                style: TextStyle(fontWeight: FontWeight.w800),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 8,
-                                children: [
-                                  OutlinedButton(
-                                    onPressed: () => _open('https://www.korea.kr/'),
-                                    child: const Text('korea.kr'),
-                                  ),
-                                  OutlinedButton(
-                                    onPressed: () => _open('https://www.ktv.go.kr/'),
-                                    child: const Text('ktv.go.kr'),
-                                  ),
-                                  OutlinedButton(
-                                    onPressed: () => _open('https://www.data.go.kr/'),
-                                    child: const Text('data.go.kr'),
-                                  ),
-                                ],
-                              ),
                             ],
                           ),
                         ),
@@ -216,7 +202,10 @@ class _TodayPresidentBlock extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 color: Theme.of(context).colorScheme.primaryContainer,
               ),
-              child: Icon(Icons.today_rounded, color: Theme.of(context).colorScheme.onPrimaryContainer),
+              child: Icon(
+                Icons.today_rounded,
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -225,7 +214,10 @@ class _TodayPresidentBlock extends StatelessWidget {
                 children: [
                   Text(date, style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 4),
-                  const Text('오늘의 대통령', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+                  const Text(
+                    '오늘의 대통령',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                  ),
                 ],
               ),
             ),
@@ -244,7 +236,6 @@ class _MiniFeedCard extends StatelessWidget {
   final String title;
   final IconData icon;
   final Color headerColor;
-
   final List<ContentItem> items;
   final void Function(ContentItem it) onTapItem;
 
@@ -260,6 +251,11 @@ class _MiniFeedCard extends StatelessWidget {
     final u = Uri.tryParse(url);
     if (u == null) return '';
     return u.host;
+  }
+
+  String _date(DateTime dt) {
+    if (dt.millisecondsSinceEpoch == 0) return '';
+    return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -278,7 +274,10 @@ class _MiniFeedCard extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 child: Center(
-                  child: Icon(Icons.inbox_outlined, color: Theme.of(context).colorScheme.outline),
+                  child: Icon(
+                    Icons.inbox_outlined,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
               )
             else
@@ -295,14 +294,16 @@ class _MiniFeedCard extends StatelessWidget {
                           it.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           _date(it.publishedAt),
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
-                        // ✅ 출처(도메인) 표시
                         const SizedBox(height: 4),
                         Builder(
                           builder: (_) {
@@ -320,17 +321,16 @@ class _MiniFeedCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (it != items.last) Divider(height: 1, color: Theme.of(context).dividerColor.withOpacity(0.25)),
+                if (it != items.last)
+                  Divider(
+                    height: 1,
+                    color: Theme.of(context).dividerColor.withOpacity(0.25),
+                  ),
               ],
           ],
         ),
       ),
     );
-  }
-
-  String _date(DateTime dt) {
-    if (dt.millisecondsSinceEpoch == 0) return '';
-    return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')}';
   }
 }
 
@@ -387,7 +387,10 @@ class _ErrorBlock extends StatelessWidget {
   final String error;
   final VoidCallback onRetry;
 
-  const _ErrorBlock({required this.error, required this.onRetry});
+  const _ErrorBlock({
+    required this.error,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
