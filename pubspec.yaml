@@ -1,6 +1,6 @@
 name: president_app
 publish_to: 'none'
-version: 0.0.1+15
+version: 0.0.1+17
 
 environment:
   sdk: '>=3.6.0 <4.0.0'
@@ -16,6 +16,7 @@ dependencies:
   google_mobile_ads: ^5.0.0
   purchases_flutter: ^9.11.1
   youtube_explode_dart: ^2.3.6
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
@@ -24,3 +25,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:                  # <--- 여기서부터 추가된 부분입니다. (스페이스바 2칸 들여쓰기)
+    - assets/images/       # <--- (스페이스바 4칸 들여쓰기) 파일 이름까지 안 적고 폴더만 적으면 폴더 안의 모든 이미지를 다 쓸 수 있습니다.

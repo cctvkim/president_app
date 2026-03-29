@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../board/board_api.dart';
 import '../board/board_block_store.dart';
+import '../board/device_service.dart';
 
 class BoardDetailScreen extends StatefulWidget {
   final int postId;
@@ -46,6 +47,17 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     }
   }
 
+  String? _postImageUrl() {
+    final raw = (_post?["image_url"] ?? "").toString().trim();
+    if (raw.isEmpty) return null;
+
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      return raw;
+    }
+
+    return '${BoardApi.baseUrl}$raw';
+  }
+
   Future<void> _toggleBlockAuthor() async {
     final authorUuid = (_post?["author_uuid"] ?? "").toString();
     if (authorUuid.isEmpty) return;
@@ -70,6 +82,110 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
     final v = (it["author_uuid"] ?? it["device_uuid"] ?? it["writer_uuid"] ?? it["user_uuid"])?.toString();
     final s = v?.trim();
     return (s == null || s.isEmpty) ? null : s;
+  }
+
+  Future<bool> _isMine() async {
+    final myUuid = await DeviceService.getOrCreateUuid();
+    final author = (_post?['author_uuid'] ?? '').toString().trim();
+    return myUuid.isNotEmpty && myUuid == author;
+  }
+
+  Future<void> _editPost() async {
+    final titleCtl = TextEditingController(
+      text: (_post?['title'] ?? '').toString(),
+    );
+    final contentCtl = TextEditingController(
+      text: (_post?['content'] ?? '').toString(),
+    );
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(bottom: bottom),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              '글 수정',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('취소'),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('저장'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: titleCtl,
+                        maxLength: 80,
+                        decoration: const InputDecoration(labelText: '제목'),
+                        textInputAction: TextInputAction.next,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: contentCtl,
+                        minLines: 5,
+                        maxLines: 10,
+                        maxLength: 5000,
+                        decoration: const InputDecoration(
+                          labelText: '내용',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (ok != true) return;
+
+    final title = titleCtl.text.trim();
+    final content = contentCtl.text.trim();
+    if (title.isEmpty || content.isEmpty) return;
+
+    try {
+      await BoardApi.updatePost(widget.postId, title, content);
+      await _load();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('수정되었습니다')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('수정 실패: $e')),
+      );
+    }
   }
 
   Future<void> _writeComment({int? parentId}) async {
@@ -210,19 +326,29 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
 
 
   Widget _moreMenuForPost() {
-    return PopupMenuButton<String>(
-      onSelected: (v) async {
-        if (v == "report") {
-          await _reportPost();
-        } else if (v == "block") {
-          final post = _post;
-          if (post != null) await _blockAuthorFromItem(post);
-        }
+    return FutureBuilder<bool>(
+      future: _isMine(),
+      builder: (context, snapshot) {
+        final mine = snapshot.data ?? false;
+
+        return PopupMenuButton<String>(
+          onSelected: (v) async {
+            if (v == "edit") {
+              await _editPost();
+            } else if (v == "report") {
+              await _reportPost();
+            } else if (v == "block") {
+              final post = _post;
+              if (post != null) await _blockAuthorFromItem(post);
+            }
+          },
+          itemBuilder: (_) => [
+            if (mine) const PopupMenuItem(value: "edit", child: Text("수정하기")),
+            const PopupMenuItem(value: "report", child: Text("신고하기")),
+            const PopupMenuItem(value: "block", child: Text("작성자 차단")),
+          ],
+        );
       },
-      itemBuilder: (_) => const [
-        PopupMenuItem(value: "report", child: Text("신고하기")),
-        PopupMenuItem(value: "block", child: Text("작성자 차단")),
-      ],
     );
   }
 
@@ -246,6 +372,7 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
   Widget build(BuildContext context) {
     final post = _post;
     final postUuid = _extractAuthorUuid(_post);
+    final imageUrl = _postImageUrl();
 
 
     return Scaffold(
@@ -278,6 +405,25 @@ class _BoardDetailScreenState extends State<BoardDetailScreen> {
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 8),
+
+                      if (imageUrl != null) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.network(
+                            imageUrl,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              height: 180,
+                              alignment: Alignment.center,
+                              color: Colors.black12,
+                              child: const Text('이미지를 불러올 수 없습니다'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+
                       Text((post?["content"] ?? "").toString()),
                       const SizedBox(height: 12),
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 import 'device_service.dart';
 
 class BoardApi {
@@ -13,6 +14,15 @@ class BoardApi {
     final uuid = await DeviceService.getOrCreateUuid();
     return {
       "Content-Type": "application/json",
+      "X-Device-UUID": uuid,
+    };
+  }
+
+  
+
+  static Future<Map<String, String>> _deviceHeaders() async {
+    final uuid = await DeviceService.getOrCreateUuid();
+    return {
       "X-Device-UUID": uuid,
     };
   }
@@ -180,15 +190,63 @@ class BoardApi {
     return await _filterBlocked(list);
   }
 
-  static Future<Map<String, dynamic>> createPost(String title, String content) async {
+
+
+  static Future<Map<String, dynamic>> createPost(
+    String title,
+    String content, {
+    XFile? image,
+  }) async {
     final uri = Uri.parse("$baseUrl/v1/posts");
-    final res = await http.post(
-      uri,
+
+    if (image == null) {
+      final res = await http.post(
+        uri,
+        headers: await _headers(),
+        body: jsonEncode({
+          "title": title,
+          "content": content,
+        }),
+      );
+
+      if (res.statusCode != 200) {
+        throw Exception("createPost failed: ${res.statusCode} ${res.body}");
+      }
+      return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+    }
+
+    final req = http.MultipartRequest("POST", uri);
+    req.headers.addAll(await _deviceHeaders());
+    req.fields["title"] = title;
+    req.fields["content"] = content;
+    req.files.add(await http.MultipartFile.fromPath("image", image.path));
+
+    final streamed = await req.send();
+    final body = await streamed.stream.bytesToString();
+
+    if (streamed.statusCode != 200) {
+      throw Exception("createPost failed: ${streamed.statusCode} $body");
+    }
+
+    return (jsonDecode(body) as Map).cast<String, dynamic>();
+  }
+
+  static Future<Map<String, dynamic>> updatePost(
+    int postId,
+    String title,
+    String content,
+  ) async {
+    final res = await http.put(
+      Uri.parse('$baseUrl/v1/posts/$postId'),
       headers: await _headers(),
-      body: jsonEncode({"title": title, "content": content}),
+      body: jsonEncode({
+        'title': title,
+        'content': content,
+      }),
     );
+
     if (res.statusCode != 200) {
-      throw Exception("createPost failed: ${res.statusCode} ${res.body}");
+      throw Exception('updatePost failed: ${res.statusCode} ${res.body}');
     }
     return (jsonDecode(res.body) as Map).cast<String, dynamic>();
   }
